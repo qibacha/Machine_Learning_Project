@@ -1,0 +1,95 @@
+---
+title: "Human Activity Recognition Research"
+author: "Yuzheng Zhou"
+date: "Saturday, July 25, 2015"
+output: html_document
+---
+#Executive Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+
+The goal of this research is to use data from accelerometers placed on the belt, forearm, arm, and dumbell of six participants to predict how well they were doing the exercise in terms of the classification in the data.
+
+#Load R libraries will be used in the research
+```{r}
+library(caret)
+library(kernlab)
+library(randomForest)
+library(corrplot)
+```
+
+#Set working directory to read the pre-downloaded data and save the outputs
+```{r}
+setwd("C:\\Users\\qibacha\\Machine_Learning")
+```
+#Set seed to make the research to be reproducible
+```{r}
+set.seed(31415927)
+```
+
+#Read in training data from the pre-downloaded csv file 
+```{r}
+data_training <- read.csv("./data/pml-training.csv", na.strings= c("NA",""," "))
+```
+#Clean up the training data by remove the variables with NA becaues those columns will bring in noise.
+```{r}
+data_training_NAs <- apply(data_training, 2, function(x) {sum(is.na(x))})
+data_training_clean <- data_training[,which(data_training_NAs == 0)]
+```
+#Remove columns such as ID, name, and timestamps
+```{r}
+data_training_clean <- data_training_clean[8:length(data_training_clean)]
+```
+#Partioning the training set into two: training and cross validation
+Split the cleaned training data into 2 based on 70% and 30%. myTraining is for model estimation, MyCrossval is for model validation.
+```{r}
+inTrain <- createDataPartition(y = data_training_clean$classe, p = 0.7, list = FALSE)
+myTraining <- data_training_clean[inTrain, ]
+MyCrossval <- data_training_clean[-inTrain, ]
+dim(myTraining)
+dim(MyCrossval)
+```
+#A Randome Forest model is selected to estimate the model to predict the classification. A correlation matrix will be created to show the relationship between the variables. All variables will be used in the model estimation.
+```{r}
+correlMatrix <- cor(myTraining[, -length(myTraining)])
+corrplot(correlMatrix, order = "FPC", method = "circle", type = "lower", tl.cex = 0.8,  tl.col = rgb(0, 0, 0))
+```
+#Model Estimation
+Fit a model by using the 70% training data to predict the classification using everything else as a predictor
+```{r}
+model <- randomForest(classe ~ ., data = myTraining)
+```
+#Model Cross Validation
+Crossvalidate the model by using the 30% of the training data. From the output we can see this model generates a 99% prediction accuracy. So this model is very accurate and robust.
+```{r}
+predictCrossVal <- predict(model, MyCrossval)
+confusionMatrix(MyCrossval$classe, predictCrossVal)
+```
+#Read in testing data 
+Read in testing data, also clean up the data by removing the variables have NA, and remove the identifier variables.
+```{r}
+data_test <- read.csv("./data/pml-testing.csv", na.strings= c("NA",""," "))
+data_test_NAs <- apply(data_test, 2, function(x) {sum(is.na(x))})
+data_test_clean <- data_test[,which(data_test_NAs == 0)]
+data_test_clean <- data_test_clean[8:length(data_test_clean)]
+```
+#Varify the Predictions
+Apply the estimated model to the testing data to predict the classifications for the 20 observations in the testing dataset.
+```{r}
+predictTest <- predict(model, data_test_clean)
+predictTest
+```
+#Output
+Output the 20 classifications of the 20 observations to txt files.
+```{r}
+write_txt_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+write_txt_files(predictTest)
+
+```
+
